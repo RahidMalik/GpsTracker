@@ -4,7 +4,10 @@ import axios from "axios"
 export async function GET(request: NextRequest) {
     try {
         // Getting user ip address
-        let ip = request.headers.get("x-forwarded-for") || request.ip || "";
+        let ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
+        if (ip && ip.includes(",")) {
+            ip = ip.split(",")[0].trim();
+        }
 
         // Localhost Testing Hack
         if (ip === "::1" || ip === "127.0.0.1" || !ip) {
