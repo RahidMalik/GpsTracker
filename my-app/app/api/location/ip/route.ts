@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from "next/server";
+import axios from "axios"
+
+export async function GET(request: NextRequest) {
+    try {
+        // Getting user ip address
+        let ip = request.headers.get("x-forwarded-for") || request.ip || "";
+
+        // Localhost Testing Hack
+        if (ip === "::1" || ip === "127.0.0.1" || !ip) {
+            ip = "223.123.97.205"
+        }
+
+        const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`)
+
+        const geoData = geoResponse.data;
+        if (geoData.status === "fail") {
+            return NextResponse.json({ error: "IP location fetch failed" }, { status: 400 });
+        }
+
+        // 3. User-Agent (Browser/Device info)
+        const userAgent = request.headers.get("user-agent") || "";
+
+
+        return NextResponse.json({
+            ipAddress: geoData.query,
+            city: geoData.city,
+            region: geoData.regionName,
+            country: geoData.country,
+            isp: geoData.isp,
+            latitude: geoData.lat,
+            longitude: geoData.lon,
+            userAgent: userAgent,
+        });
+
+
+    } catch (error) {
+        console.error("Error in IP tracking route", error)
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+};
