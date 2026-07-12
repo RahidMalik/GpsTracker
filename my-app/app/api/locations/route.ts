@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         // Database se saare visitors uthao aur unki saari locations bhi sath le kar aao (Include Relations)
         const visitors = await prisma.visitor.findMany({

