@@ -73,9 +73,23 @@ export default function AdminDashboard() {
   }, []);
   //---after every 5sec it get the data from api and display in the map
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, POLL_INTERVAL);
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await fetchLogs();
+      }
+    };
+    init();
+    const Intervel = setTimeout(() => {
+      if (isMounted) {
+        fetchLogs();
+      }
+    }, POLL_INTERVAL);
+
+    return (() => {
+      isMounted = false;
+      clearTimeout(Intervel);
+    })
   }, [fetchLogs]);
 
   // --- Map lifecycle (marker and map) ---
@@ -147,7 +161,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen w-full bg-slate-950 text-slate-100 p-6 font-sans">
       {/* Header */}
       <div className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-emerald-400 to-cyan-400">
           Real-Time Geolocation Dashboard
         </h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -211,7 +225,7 @@ export default function AdminDashboard() {
 
         {/* Main — Live map */}
         <div className="lg:col-span-2 flex flex-col space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex-1 flex flex-col min-h-[500px]">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex-1 flex flex-col min-h-125">
             <div className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
               Live Movement Tracking Panel
