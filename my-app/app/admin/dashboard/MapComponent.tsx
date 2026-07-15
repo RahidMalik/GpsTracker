@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
 // Fix for default Leaflet icons in Next.js App Router
 const DefaultIcon = L.icon({
@@ -56,7 +55,7 @@ export default function MapComponent({ locations }: MapProps) {
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
       />
-      
+
       {/* 
         Glowing Neon Indigo Polyline connecting all chronological points 
       */}
@@ -70,9 +69,9 @@ export default function MapComponent({ locations }: MapProps) {
           className: "drop-shadow-[0_0_8px_rgba(99,102,241,0.8)] animate-pulse", // Glow effect
         }}
       />
-      
+
       <Marker position={currentPos} />
-      
+
       {/* Hook into Leaflet's map instance to pan smoothly to new locations */}
       <MapAutoPan center={currentPos} />
     </MapContainer>
