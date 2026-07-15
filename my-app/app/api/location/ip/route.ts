@@ -9,9 +9,14 @@ export async function GET(request: NextRequest) {
             ip = ip.split(",")[0].trim();
         }
 
-        // Localhost Testing Hack
-        if (ip === "::1" || ip === "127.0.0.1" || !ip) {
-            ip = "223.123.97.205"
+        // 🟢 Localhost Testing Hack (Sirf Development mode mein chalega)
+        if (process.env.NODE_ENV === "development" && (ip === "::1" || ip === "127.0.0.1" || !ip)) {
+            ip = "223.123.97.205"; // Sirf local test ke liye dummy IP
+        }
+
+        // 🔴 Production Safety: Agar live server par real IP na mile toh error de do
+        if (process.env.NODE_ENV === "production" && (!ip || ip === "::1" || ip === "127.0.0.1")) {
+            return NextResponse.json({ error: "Valid public IP not detected" }, { status: 400 });
         }
 
         const geoResponse = await axios.get(`http://ip-api.com/json/${ip}`)

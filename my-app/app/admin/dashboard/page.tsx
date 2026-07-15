@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import axios from "axios";
 
 // SSR: false dynamic import as required for react-leaflet in Next.js App Router
 const LiveMap = dynamic(() => import("./MapComponent"), {
@@ -38,18 +39,23 @@ export default function AdminDashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Initial fetch for visitors
+  // Initial fetch for visitors
   useEffect(() => {
     let isMounted = true;
     const fetchVisitors = async () => {
       try {
-        const res = await fetch("/api/locations");
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted) {
-            setVisitors(data);
-            if (data.length > 0 && !visitorCode) {
-              setVisitorCode(data[0].visitorCode); // Auto-select first visitor
-            }
+        // Backend se list fetch karein
+        const res = await axios.get("/api/locations");
+        const data = res.data;
+
+        if (isMounted) {
+          // 1. Poori list ko 'visitors' state mein save karein
+          setVisitors(data);
+
+          // 2. Agar list mein data hai aur koi visitor select nahi hai, 
+          // toh list ke pehle user ko automatically select kar lein
+          if (data.length > 0 && !visitorCode) {
+            setVisitorCode(data[0].visitorCode);
           }
         }
       } catch (err) {
@@ -58,12 +64,12 @@ export default function AdminDashboard() {
         if (isMounted) setInitialLoading(false);
       }
     };
-    fetchVisitors();
-    
-    return () => { isMounted = false; };
-  }, []);
 
-  // Poll backend for location history
+    fetchVisitors();
+
+    return () => { isMounted = false; };
+  }, []); // [] dependency array rakhein taake yeh sirf ek baar load ho
+
   useEffect(() => {
     if (!visitorCode) return;
 
@@ -72,27 +78,29 @@ export default function AdminDashboard() {
     const fetchHistory = async () => {
       try {
         setIsPolling(true);
-        const res = await fetch(`/api/location/history/${visitorCode}`);
 
-        if (!res.ok) {
-          if (res.status === 404) {
-            if (isMounted) {
-              setLocations([]);
-              setError("No coordinates broadcasted by this visitor yet.");
-            }
-          } else {
-            if (isMounted) setError("Error retrieving location data.");
-          }
-          return;
-        }
+        // Axios GET Request
+        const res = await axios.get(`/api/location/history/${visitorCode}`);
 
-        const data = await res.json();
+        // Agar request successful (200 OK) rahi toh direct data mil jayega
+        const data = res.data;
+
         if (isMounted) {
           setLocations(data);
           setError(null);
         }
-      } catch (err) {
-        if (isMounted) setError("Network anomaly detected while tracking.");
+      } catch (err: any) {
+        // Axios har non-200 status (jaise 404, 500) ko catch block mein phekta hai
+        if (isMounted) {
+          // Check karo kya server ne 404 error bheja hai?
+          if (err.response && err.response.status === 404) {
+            setLocations([]); // Coordinates khali kar do
+            setError("No coordinates broadcasted by this visitor yet.");
+          } else {
+            // Agar koi aur error hai (jaise network down ya 500 server error)
+            setError("Network anomaly detected or error retrieving data.");
+          }
+        }
       } finally {
         if (isMounted) setIsPolling(false);
       }
@@ -113,17 +121,17 @@ export default function AdminDashboard() {
   const latestLoc = locations.length > 0 ? locations[locations.length - 1] : null;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0f] text-slate-100 selection:bg-indigo-500/30 font-sans flex flex-col relative overflow-hidden">
+    <main className="min-h-screen bg-[#0a0a0f] text-slate-100 selection:bg-indigo-500/30 font-sans flex flex-col relative overflow-x-hidden">
       {/* Ambient background glows */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
         <div className="absolute -top-[30%] -right-[10%] h-[800px] w-[800px] rounded-full bg-indigo-900/20 blur-[120px]" />
         <div className="absolute -bottom-[20%] -left-[10%] h-[600px] w-[600px] rounded-full bg-slate-900/50 blur-[120px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex h-screen max-w-7xl flex-col p-4 lg:p-6 lg:flex-row gap-6 w-full">
+      <div className="relative z-10 mx-auto flex min-h-screen lg:h-screen max-w-7xl flex-col p-4 lg:p-6 lg:flex-row gap-6 w-full">
 
         {/* --- Left Panel: Controls & Metadata --- */}
-        <aside className="flex flex-col gap-6 lg:w-[420px] shrink-0 h-full">
+        <aside className="flex flex-col gap-6 lg:w-[420px] shrink-0 lg:h-full">
 
           {/* Header Panel */}
           <div className="rounded-2xl border border-white/[0.05] bg-white/[0.02] backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden shrink-0">
@@ -137,51 +145,44 @@ export default function AdminDashboard() {
           </div>
 
           {/* Target Selection Panel (Scrollable List) */}
-          <div className="flex flex-col flex-1 rounded-2xl border border-white/[0.05] bg-white/[0.02] backdrop-blur-xl p-5 shadow-xl relative overflow-hidden min-h-0">
+          <div className="flex flex-col h-[300px] lg:h-full rounded-2xl border border-white/[0.05] bg-white/[0.02] backdrop-blur-xl p-5 shadow-xl relative overflow-hidden min-h-[300px]">
             <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-500 flex items-center gap-2 shrink-0">
-              Active Targets
+              Active Targets ({visitors.length})
             </h2>
-            
+
+            {/* Scrollable list area */}
             <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
               {initialLoading ? (
-                 <div className="text-center py-10 text-slate-500 text-xs uppercase tracking-widest animate-pulse">
-                    Scanning Database...
-                 </div>
+                <div className="text-center py-10 text-slate-500 text-xs uppercase tracking-widest animate-pulse">
+                  Scanning Database...
+                </div>
               ) : visitors.length === 0 ? (
-                 <div className="text-center py-10">
-                    <p className="text-indigo-400/50 font-mono text-sm">No targets found in database.</p>
-                 </div>
+                <div className="text-center py-10 flex flex-col items-center justify-center">
+                  <p className="text-indigo-400/50 font-mono text-xs">No active targets found.</p>
+                </div>
               ) : (
-                 visitors.map((visitor) => (
-                   <button
-                     key={visitor.visitorCode}
-                     onClick={() => setVisitorCode(visitor.visitorCode)}
-                     className={`w-full text-left p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group
-                       ${visitorCode === visitor.visitorCode 
-                         ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
-                         : 'border-white/5 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]'
-                       }
-                     `}
-                   >
-                     {visitorCode === visitor.visitorCode && (
-                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
-                     )}
-                     <div className="flex justify-between items-center mb-1">
-                        <span className={`font-mono text-sm tracking-tight ${visitorCode === visitor.visitorCode ? 'text-indigo-300' : 'text-slate-300'}`}>
-                          {visitor.visitorCode}
-                        </span>
-                        {visitorCode === visitor.visitorCode && (
-                          <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-                          </span>
-                        )}
-                     </div>
-                     <p className="text-xs text-slate-500 font-medium">
-                       Last Seen: {new Date(visitor.lastSeenAt).toLocaleString()}
-                     </p>
-                   </button>
-                 ))
+                visitors.map((visitor) => (
+                  <button
+                    key={visitor.visitorCode}
+                    onClick={() => setVisitorCode(visitor.visitorCode)}
+                    className={`w-full text-left p-4 rounded-xl border transition-all duration-300 relative overflow-hidden group
+             ${visitorCode === visitor.visitorCode
+                        ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                        : 'border-white/5 bg-white/[0.01] hover:border-white/20 hover:bg-white/[0.03]'
+                      }
+          `}
+                  >
+                    {/* ... (Baki ka button content same rahay ga) ... */}
+                    <div className="flex justify-between items-center mb-1">
+                      <span className={`font-mono text-sm tracking-tight ${visitorCode === visitor.visitorCode ? 'text-indigo-300' : 'text-slate-300'}`}>
+                        {visitor.visitorCode}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Last Seen: {new Date(visitor.lastSeenAt).toLocaleString()}
+                    </p>
+                  </button>
+                ))
               )}
             </div>
           </div>
@@ -202,7 +203,7 @@ export default function AdminDashboard() {
 
             <div className="space-y-5">
               <TelemetryCell label="Selected Target" value={visitorCode || "NONE"} highlight />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <TelemetryCell
                   label="Total Pings"
@@ -246,7 +247,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* --- Right Panel: Live Map Viewport --- */}
-        <section className="relative flex-1 overflow-hidden rounded-3xl border border-white/[0.05] bg-black shadow-2xl h-full min-h-[400px]">
+        <section className="relative flex-1 overflow-hidden rounded-3xl border border-white/[0.05] bg-black shadow-2xl lg:h-full min-h-[400px]">
           {/* Map Overlay Glows */}
           <div className="absolute inset-0 z-10 pointer-events-none ring-1 ring-inset ring-white/10 rounded-3xl shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]" />
 
@@ -268,9 +269,10 @@ export default function AdminDashboard() {
           )}
         </section>
       </div>
-      
+
       {/* Custom scrollbar styles for the target list */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
